@@ -4,7 +4,7 @@ author: "David Julovich"
 date: "8/15/2019"
 output: html_document
 ---
-
+# https://youtu.be/87lGYgNsH-Y
 ```{r, include=FALSE}
 
 library(class)
