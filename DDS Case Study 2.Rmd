@@ -1,0 +1,261 @@
+---
+title: "DDS Case Study 2"
+author: "David Julovich"
+date: "8/15/2019"
+output: html_document
+---
+
+```{r, include=FALSE}
+
+library(class)
+library(gmodels)
+library(caret)
+library(magrittr)
+library(ROSE)
+library(tidyverse) #general data wrangling tools
+library(skimr) #summary stats
+library(corrplot)
+library(MASS)#studentized residuals
+library(lindia)
+library(ggplot2)
+library(car) # Regression tools
+library(rlang)
+library(olsrr)
+library(forcats) 
+library(roperators)
+library(gridExtra)
+library(mefa4)
+library(stats)
+library(caret)
+library(tidyverse) #general data wrangling tools
+library(skimr) #summary stats
+library(corrplot)
+library(MASS)#studentized residuals
+library(lindia)
+library(ggplot2)
+library(car) # Regression tools
+library(rlang)
+library(olsrr)
+library(forcats) 
+library(roperators)
+library(gridExtra)
+library(mefa4)
+library(stats)
+```
+
+```{r  echo=TRUE}
+
+cs2<- read.csv("c:/Users/daj0079/Desktop/SMU/CaseStudy2-data.csv")
+no_at<-read.csv("c:/Users/daj0079/Desktop/SMU/CaseStudy2Validation No Attrition.csv")
+
+#Normalize for KNN
+normalize <-function(x){
+   return((x-min(x))/(max(x)-min(x)))}
+
+#Set up the data for the model 
+#change data to factors and remove useless variable
+
+OT<-as.numeric(cs2$OverTime)
+OTO<-as.numeric(no_at$OverTime)
+no_at<-cbind(no_at,OTO)
+cs2<-cbind(cs2, OT)
+cs2.sub<-cs2[c( 'Attrition', 'JobLevel', 'OT')]
+table(cs2$Attrition)
+#Run Normalize and Build tain and test groups
+cs2_sub.norm<-as.data.frame(lapply(cs2.sub[-1], normalize))
+set.seed(123)
+trainobs=sample(seq(1,dim(cs2_sub.norm)[1]),round(.75*dim(cs2_sub.norm)[1]),replace=FALSE)
+cs_Train =cs2_sub.norm[trainobs,]
+cs_Test=cs2_sub.norm[-trainobs,]
+cs_train_target <-cs2[trainobs,3]
+cs_test_target<-cs2[-trainobs,3]
+
+#1 Model 1 knn K=3
+model_1<-knn(train=cs_Train, test=cs_Test,cl= cs_train_target, k=3)
+#table and confusion matrix
+CrossTable(x=cs_test_target,y=model_1, prop.chisq=FALSE)
+confusionMatrix(model_1,cs_test_target, dnn = c("Prediction", "Reference"),  mode = "sens_spec")
+
+
+
+
+#2 Over sampling model for attrition = YES k=12
+data_balanced_over <- ovun.sample(Attrition ~ ., data = cs2, method = "over",N = 1200)$data
+table(data_balanced_over$Attrition)
+
+#Set up the data for the model
+data_over.sub<-data_balanced_over[c( 'Attrition', 'JobLevel', 'OT','Age', 'Education', 'JobSatisfaction',  'DistanceFromHome', 'JobInvolvement', 'YearsAtCompany','NumCompaniesWorked')]
+
+#Run Normalize and Build tain and test groups
+data_over.norm<-as.data.frame(lapply(data_over.sub[-1], normalize))
+set.seed(899)
+data_over_trainobs=sample(seq(1,dim(data_over.norm)[1]),round(.75*dim(data_over.norm)[1]),replace=FALSE)
+over_cs_Train =data_over.norm[data_over_trainobs,]
+over_cs_Test=data_over.norm[-data_over_trainobs,]
+over_cs_train_target <-data_balanced_over[data_over_trainobs,3]
+over_cs_test_target<-data_balanced_over[-data_over_trainobs,3]
+
+#knn k=12
+over_sam<-knn(train=over_cs_Train, test=over_cs_Test,cl= over_cs_train_target, k=12)
+#table and confusion matrix
+CrossTable(x=over_cs_test_target,y=over_sam, prop.chisq=FALSE)
+confusionMatrix(over_sam,over_cs_test_target, dnn = c("Prediction", "Reference"),  mode = "sens_spec")
+
+
+
+
+#3 Attrition Predicition Model k=12
+no_at.sub<-no_at[c( 'JobLevel', 'OTO','Age', 'Education', 'JobSatisfaction',  'DistanceFromHome', 'JobInvolvement', 'YearsAtCompany','NumCompaniesWorked')]
+
+#Run Normalize and Build tain and test groups
+no_at.norm<-as.data.frame(lapply(no_at.sub, normalize))
+
+#knn k=12
+no_at_pred<-knn(train=over_cs_Train, test=no_at.norm,cl= over_cs_train_target, k=12)
+
+#table of predictions
+no_at_pred
+CrossTable(x=over_cs_test_target,y=no_at_pred, prop.chisq=FALSE)
+
+
+
+rcs2<- read.csv("c:/Users/daj0079/Desktop/SMU/CaseStudy2-data.csv")
+no_sal<-read.csv("c:/Users/daj0079/Desktop/SMU/CaseStudy2Validation No Salary.csv")
+#yes
+ggplot(rcs2, aes(x = Attrition, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#yes
+ggplot(rcs2, aes(x = BusinessTravel, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#yes
+ggplot(rcs2, aes(x = Department, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#YES
+ggplot(rcs2, aes(x =EducationField, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = Gender, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#YES
+ggplot(rcs2, aes(x = JobRole, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#yes
+ggplot(rcs2, aes(x = MaritalStatus, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = Over18, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+ggplot(rcs2, aes(x = OverTime, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+##YES
+ggplot(rcs2, aes(x = Age, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+##NO
+ggplot(rcs2, aes(x = DailyRate, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+##NO
+ggplot(rcs2, aes(x = DistanceFromHome, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#Yes
+ggplot(rcs2, aes(x = Education, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = EmployeeCount, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = EnvironmentSatisfaction, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = HourlyRate, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = ID, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = JobInvolvement, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+###YES#### make factor
+ggplot(rcs2, aes(x = JobLevel, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)+ggtitle("Regression")+theme(plot.title = element_text(hjust = 0.5))
+#NO
+ggplot(rcs2, aes(x = JobSatisfaction, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = MonthlyRate, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = NumCompaniesWorked, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = PercentSalaryHike, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = PerformanceRating, y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = RelationshipSatisfaction,y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = TrainingTimesLastYear,y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+#NO
+ggplot(rcs2, aes(x = WorkLifeBalance,y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+####YES FACTOR###
+ggplot(rcs2, aes(x = YearsAtCompany,y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+####YES FACTOR###
+ggplot(rcs2, aes(x = YearsInCurrentRole,y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+####YES FACTOR###
+ggplot(rcs2, aes(x = YearsSinceLastPromotion,y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+###YES FACTOR###
+ggplot(rcs2, aes(x = YearsWithCurrManager,y = MonthlyIncome)) +
+   geom_point() + geom_smooth(method=lm)
+
+
+rcs2 %<>% mutate(logdistance = log(DistanceFromHome)) %>% mutate(logmonthlyincome = log(MonthlyIncome))%>%mutate(logyearsatcompany=log(YearsAtCompany))
+no_sal$Attrition<-ifelse(no_sal$Attrition=="Yes",1, ifelse(no_sal$Attrition =="No",0,0))
+rcs2$Attrition<-ifelse(rcs2$Attrition=="Yes",1, ifelse(rcs2$Attrition =="No",0,0))
+
+
+rcs2$JobLevel<-as.factor(rcs2$JobLevel)
+no_sal$JobLevel <- as.factor(no_sal$JobLevel)
+
+rcs2$Gender<-ifelse(rcs2$Gender=="Male",1, ifelse(rcs2$Gender =="Female",2,0))
+no_sal$OverTime<-ifelse(no_sal$OverTime=="Yes",1, ifelse(no_sal$OverTime =="No",2,0))
+
+
+imp_drop<-rcs2[c("Age", "Education", "JobRole", 'JobLevel',  "TotalWorkingYears","MonthlyIncome")]
+  
+
+
+
+imp_drop<-rcs2[c("Age", "Education", "JobRole", 'JobLevel', "MaritalStatus",  "TotalWorkingYears","MonthlyIncome")]
+
+no_sal_drop<-no_sal[c("Age", "Education", "JobRole", 'JobLevel', "MaritalStatus",  "TotalWorkingYears")]
+
+
+#imp_testing=rcs2[,!(names(rcs2) %in% imp_drop)]
+
+
+imp.model <- lm(MonthlyIncome ~., data = imp_drop)
+summary(imp.model)
+vif(imp.model)
+plot(imp.model)
+
+imp_pred<-predict(imp.model, imp_drop)
+
+
+no_sal_pred<-predict(imp.model,no_sal_drop)
+no_sal_pred
+
+
+RMSE = function(m, o){
+   sqrt(mean((m - o)^2))
+}
+
+score<-RMSE(imp_drop$MonthlyIncome,imp_pred)
+score
+
